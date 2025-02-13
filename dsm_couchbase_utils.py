@@ -1,34 +1,49 @@
-from cluster_manager import ClusterManager as cm
-from dotenv import load_dotenv
-import os 
-
-load_dotenv()
+from cb.cluster_manager import ClusterManager as cluster_manager
+from cb.collection_manager import CollectionManager as collection_manager
+from cb.index_manager import IndexManager as index_manager
 
 def remove_db_connection():
-  cm.disconnect()
+  cluster_manager.disconnect()
+
 
 def connect_to_couchbase(bucket):
-  return cm.cluster().bucket(bucket)
+  return cluster_manager.cluster().bucket(bucket)
 
-
+        
 def list_couchbase_collection(bucket):
-  result = []
+   scope_collection_map = collection_manager.get_scope_collection_map(bucket)
 
-  scopes = connect_to_couchbase(bucket).collections().get_all_scopes()
-  for scope in scopes:
-    collections = scope.collections
-    for collection in collections:
-      result.append(f'{scope.name}.{collection.name}')
-
-  return result
+   return [
+      f'{scope}.{collection}' 
+      for scope, collections in scope_collection_map.items() 
+      for collection in collections
+    ]
 
 
 def connect_to_couchbase_collection(bucket, collection_name, scope_name=None):
   
-  scope_name = scope_name or os.getenv("CB_SCOPE") or "_default" 
-  collections = list_couchbase_collection(bucket)
+  scope_name = scope_name or cluster_manager.cb_bucket 
 
-  if f'{scope_name}.{collection_name}' in collections:
+  if collection_manager.collection_check(bucket, scope_name, collection_name).has_collection:
     return connect_to_couchbase(bucket).scope(scope_name).collection(collection_name)
   else:
     print(f"Collection {collection_name} does not exist in db")
+
+
+def create_DSM_chunk_collection(
+        bucket: str,
+        collection_name: str,
+        scope_name=None
+):
+  scope_name = scope_name or cluster_manager.cb_bucket 
+
+  collection_manager.create_collection_with_scope(bucket, scope_name, collection_name)
+
+  index = {
+        'name': "Embedding_2",
+        'dims': 1536,
+        'similarity': 'l2_norm',
+    }
+
+  cluster_manager.create_vector_index("dsm_vector", bucket, scope_name , collection_name, index)
+
