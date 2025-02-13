@@ -1,6 +1,5 @@
 from cb.cluster_manager import ClusterManager as cluster_manager
 from cb.collection_manager import CollectionManager as collection_manager
-from cb.index_manager import IndexManager as index_manager
 
 def remove_db_connection():
   cluster_manager.disconnect()
